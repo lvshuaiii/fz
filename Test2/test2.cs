@@ -7,6 +7,11 @@ using NXOpen.BlockStyler;
 using NXOpen.Utilities;
 using NXOpenUI;
 using NXOpen.UF;
+using NXOpen.Features;
+using NPOI.SS.UserModel;
+using NPOI.HSSF.UserModel;
+using NPOI.XSSF.UserModel;
+
 
 namespace ZCZ
 {
@@ -120,6 +125,18 @@ namespace ZCZ
         private static Point3d origin_point = new Point3d(0, 0, 0);
         private static Arc arc = null;
 
+        IRow row = null;
+        ISheet sheet = null;
+        /// <summary>
+        /// 最后一个元素为Para，第一个为第一个参数
+        /// </summary>
+        List<string> AttributesList = new List<string>();//
+        /// <summary>
+        /// 记录有多少个属性,最后一个为END,第一个为第一个Supplier
+        /// </summary>
+        List<string> ParaRow0List = new List<string>();//
+        List<int> SupplierRowNum = new List<int>();//属性区间
+
 
         private NXOpen.UIStyler.DialogItem supportPillarDialog;
         private NXOpen.UIStyler.BitMap supportPillarBitmap1;
@@ -157,7 +174,8 @@ namespace ZCZ
         private NXOpen.UIStyler.PushButton supportPillarActionUpdate;
         public static bool isDisposeCalled;
 
-
+        public double[] supportPillarSelPoint=null;
+        public Dictionary<string, double> paraDictorary = new Dictionary<string, double>() { { "BaseboardUpFaceZ", 0 },{ "BaseboardDownFaceZ", 0 }, { "BboardDownFaceZ", 0 } };
         #region " UI Styler Dialog Designer generator code " 
         //------------------------------------------------------------------------------
         // Constructor for NX Styler class
@@ -177,7 +195,6 @@ namespace ZCZ
                 uflayer = theufsession.Layer;
                 ufui = theufsession.Ui;
                 ufcurve = theufsession.Curve;
-
                 theDialog = theUI.Styler.CreateStylerDialog("supportpillars.dlg");
                 InitializeUIStylerDialog();
                 isDisposeCalled = false;
@@ -582,38 +599,141 @@ namespace ZCZ
         {
             try
             {
-                List<Tag> list = new List<Tag>();
-                Tag[] list_body = new Tag[3];
-                Tag Next_tag=Tag.Null;
+                List<Tag> PartObjectList = new List<Tag>();
+                Tag[] BodyArray = new Tag[4];
+                Tag NextTag=Tag.Null;
                 string attr_string=string.Empty;
-                ufobj.CycleObjsInPart(workpart.Tag,UFConstants.UF_solid_type, ref Next_tag);
+                ufobj.CycleObjsInPart(workpart.Tag,UFConstants.UF_solid_type, ref NextTag);
 
-                while(Next_tag!=Tag.Null)
+                while(NextTag!=Tag.Null)
                 {
-                   if (Next_tag == Tag.Null) break;
+                   if (NextTag == Tag.Null) break;
                    int t, subType;
-                   ufobj.AskTypeAndSubtype(Next_tag, out t, out subType);
+                   ufobj.AskTypeAndSubtype(NextTag, out t, out subType);
                    if (subType == 0/*UF_solid_body_subtype*/)
                    {
-                        list.Add(Next_tag);
+                        PartObjectList.Add(NextTag);
                    }
-                   ufobj.CycleObjsInPart(workpart.Tag, UFConstants.UF_solid_type, ref Next_tag);
-            }
-                for (int i=0;i<list.Count;i++)
+                   ufobj.CycleObjsInPart(workpart.Tag, UFConstants.UF_solid_type, ref NextTag);
+                }
+                for (int i=0;i< PartObjectList.Count;i++)
                 {
                     Tag[] feature_tag;
-                    ufmodel.AskBodyFeats(list[i], out feature_tag);
+                    ufmodel.AskBodyFeats(PartObjectList[i], out feature_tag);
                     NXOpen.Features.Feature feature_body;
                     feature_body = NXObjectManager.Get(feature_tag[0]) as NXOpen.Features.Feature;
-                    attr_string = feature_body.GetStringAttribute("名称");
-                    if(attr_string=="底板")
+                    attr_string = feature_body.GetStringAttribute("中文名称");
+                    if(attr_string=="动模底板")
                     {
-                        list_body[0] = list[i];
-                        ufdisp.SetHighlight(list_body[0],1);
+                        BodyArray[0] = PartObjectList[i];
+                        Tag[] FaceList;
+                        ufmodel.AskBodyFaces(BodyArray[0],out FaceList);
+                        int FaceType;
+                        double[] FacePoint = new double[3];
+                        double[] FaceDirection = new double[3];
+                        double[] FaceBox = new double[6];
+                        double FaceRadius;
+                        double FaceRadData;
+                        double ErrorSpaceX, ErrorSpaceY;
+                        int FaceNormDirection;
+                        for(int j=0;j<FaceList.Length;j++)//对于上表面和下表面判断的标准太过简单，未考虑中间的状况
+                        {
+                            ufmodel.AskFaceData(FaceList[j],out FaceType,FacePoint,FaceDirection,FaceBox,out FaceRadius,out FaceRadData,out FaceNormDirection);
+                            ErrorSpaceX = Math.Abs(FacePoint[0]);
+                            ErrorSpaceY = Math.Abs(FacePoint[1]);
+                            if ((ErrorSpaceX < 0.06) && (ErrorSpaceY < 0.06) && (Math.Abs(FaceDirection[2] - 1) < 0.01))
+                            { paraDictorary["BaseboardUpFaceZ"] = FacePoint[2];}
+
+                            else if ((ErrorSpaceX < 0.01) && (ErrorSpaceY < 0.01) && (Math.Abs(FaceDirection[2] + 1) < 0.01))
+                            { paraDictorary["BaseboardDownFaceZ"] = FacePoint[2];}
+                        }
+                    }
+                    if(attr_string == "动模顶针底板")
+                    {
+                        BodyArray[1] = PartObjectList[i];
+                    }
+                    if(attr_string == "动模顶针面板")
+                    {
+                        BodyArray[2] = PartObjectList[i];
+                    }
+                    if (attr_string == "B板")
+                    {
+
+                        BodyArray[3] = PartObjectList[i];
+                        Tag[] FaceList;
+                        ufmodel.AskBodyFaces(BodyArray[3], out FaceList);
+                        int FaceType;
+                        double[] FacePoint = new double[3];
+                        double[] FaceDirection = new double[3];
+                        double[] FaceBox = new double[6];
+                        double FaceRadius;
+                        double FaceRadData;
+                        double ErrorSpaceX, ErrorSpaceY;
+                        int FaceNormDirection;
+                        for (int j = 0; j < FaceList.Length; j++)//对于上表面和下表面判断的标准太过简单，未考虑中间的状况//通过判断最小和最大的Z值
+                        {
+                            ufmodel.AskFaceData(FaceList[j], out FaceType, FacePoint, FaceDirection, FaceBox, out FaceRadius, out FaceRadData, out FaceNormDirection);
+                            ErrorSpaceX = Math.Abs(FacePoint[0]);
+                            ErrorSpaceY = Math.Abs(FacePoint[1]);
+                            if ((ErrorSpaceX < 0.06) && (ErrorSpaceY < 0.06) && (Math.Abs(FaceDirection[2] + 1) < 0.01))
+                            { paraDictorary["BboardDownFaceZ"] = FacePoint[2];  }
+                        }
                     }
                 }
+
+                
+                sheet = GetExcelSheet("SupportPillar.xls", "SupportPillar");
+                row = sheet.GetRow(0);
+                string test = row.GetCell(0).StringCellValue;
+                string CellValue = row.GetCell(0).StringCellValue;
+                int index = 0;
+                while (CellValue != "END")
+                {
+                    if (CellValue == "ATTRIBUTES")
+                    {
+                        while (CellValue != "PARAMETERS")
+                        {
+                            index++;
+                            CellValue = sheet.GetRow(index).GetCell(0).StringCellValue;
+                            AttributesList.Add(CellValue);
+                        }
+                    }
+                    else if (CellValue == "SUPPLIER")
+                    {
+                        while (CellValue != "END")
+                        {
+                            index++;
+                            CellValue = sheet.GetRow(index).GetCell(0).StringCellValue;
+                            if (CellValue != "")
+                            {
+                                ParaRow0List.Add(CellValue);
+                                SupplierRowNum.Add(index);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        index++;
+                        CellValue = sheet.GetRow(index).GetCell(0).StringCellValue;
+                    }
+                }
+                List<string> SupplierList = new List<string>();
+                for(int j=0;j<(ParaRow0List.Count-1);j++)
+                {
+                    SupplierList.Add(ParaRow0List[j]);
+                }
+                supportPillarOptionSupplier.SetItems(SupplierList.ToArray());
+                int SelParaNum = supportPillarOptionSupplier.ItemValue;
+
+
+                List<string> SelParaArry = new List<string>();
+                for (int i = SupplierRowNum[SelParaNum]; i < SupplierRowNum[SelParaNum + 1]; i++)
+                {
+                    SelParaArry.Add(sheet.GetRow(i).GetCell(1).StringCellValue);
+                }
+                supportPillarOptionSafeDis.SetItems(SelParaArry.ToArray());
                 // ---- Enter your callback code here -----
-           
+
 
             }
             catch (NXOpen.NXException ex)
@@ -621,7 +741,7 @@ namespace ZCZ
                 // ---- Enter your exception handling code here -----
                 theUI.NXMessageBox.Show("UI Styler", NXMessageBox.DialogType.Error, ex.Message);
             }
-            // Callback acknowledged, do not terminate dialog
+            // Callback acknowledged, do not terminate dialog x   
             // A return value of NXOpen.UIStyler.DialogState.ExitDialog will not be accepted
             // for this callback type. You must continue dialog construction.
             return NXOpen.UIStyler.DialogState.ContinueDialog;
@@ -713,7 +833,13 @@ namespace ZCZ
         {
             try
             {
-
+                int SelParaNum = supportPillarOptionSupplier.ItemValue;
+                List<string> SelParaArry = new List<string>();
+                for (int i = SupplierRowNum[SelParaNum]; i < SupplierRowNum[SelParaNum + 1]; i++)
+                {
+                    SelParaArry.Add(sheet.GetRow(i).GetCell(1).StringCellValue);
+                }
+                supportPillarOptionSafeDis.SetItems(SelParaArry.ToArray());
 
                 // ---- Enter your callback code here -----
 
@@ -973,7 +1099,6 @@ namespace ZCZ
             {
                 workpart.ModelingViews.WorkView.Orient(View.Canned.Top, View.ScaleAdjustment.Fit);//俯视图
 
-
                 string message = "test";
                 double[] screen_pt = {0,0,0 };
                 Tag view_tag = Tag.Null;
@@ -984,6 +1109,7 @@ namespace ZCZ
                 {
                     string msg = string.Format("You Pick Screen Point({0},{1},{2})",screen_pt[0],screen_pt[1],screen_pt[2]);
                     ufui.DisplayMessage(msg,0);
+                    supportPillarSelPoint = new double[3] { screen_pt[0], screen_pt[1], screen_pt[2] };
 
                 }
                 // ---- Enter your callback code here -----
@@ -1044,7 +1170,143 @@ namespace ZCZ
             // or Callback acknowledged, terminate dialog.
             // return NXOpen.UIStyler.DialogState.ExitDialog;
         }
-
+       
+        public void CreateEnitySupportPillar(double[] supportPillarPoint,double supportPillarDiameter)//返回假体，用out;
+        {
+            #region 支撑柱
+            Point3d origin_zcz = origin;
+            Vector3d vector_zcz = vector;
+            double 
+            //大圆柱
+            Tag cylinder1_zcz_tag;
+            double[] cylinder1_zcz_origin = { origin_zcz.X, origin_zcz.Y, origin_zcz.Z };
+            string cylinder1_zcz_height = hei_zcz_sel;
+            string cylinder1_scz_diam = diam_zcz_sel;
+            double[] cylinder1_scz_direction = { vector.X, vector.Y, vector.Z };
+            ufmodel.CreateCylinder(FeatureSigns.Nullsign, null_tag, cylinder1_zcz_origin, cylinder1_zcz_height, cylinder1_scz_diam, cylinder1_scz_direction, out cylinder1_zcz_tag);
+            NXOpen.Features.Cylinder cylinder1_zcz = NXObjectManager.Get(cylinder1_zcz_tag) as NXOpen.Features.Cylinder;
+            //内部小圆柱
+            Tag cylinder2_zcz_tag;
+            double[] cylinder2_zcz_origin = { origin_zcz.X, origin_zcz.Y, origin_zcz.Z };
+            string cylinder2_zcz_height = (Double.Parse(lz_para[0]) * 2.5).ToString();
+            string cylinder2_zcz_diam = lz_para[0];
+            double[] cylinder2_scz_direction = { vector.X, vector.Y, vector.Z };
+            ufmodel.CreateCyl1(FeatureSigns.Negative, cylinder2_zcz_origin, cylinder2_zcz_height, cylinder2_zcz_diam, cylinder2_scz_direction, out cylinder2_zcz_tag);
+            NXOpen.Features.Cylinder cylinder2_zcz = NXObjectManager.Get(cylinder2_zcz_tag) as NXOpen.Features.Cylinder;
+            //倒斜角
+            Tag cylinder1chamfer1_zcz_tag;
+            Tag cylinder1chamfer2_zcz_tag;
+            Edge[] cylinder1edge_zcz;
+            Tag[] cylinder1edge1_zcz = new Tag[2];
+            Tag[] cylinder1edge2_zcz = new Tag[1];
+            cylinder1edge_zcz = cylinder1_zcz.GetEdges();
+            foreach (Edge item in cylinder1edge_zcz)
+            {
+                Point3d point11;
+                Point3d point12;
+                item.GetVertices(out point11, out point12);
+                double s1_zcz = Math.Sqrt(Math.Pow(point11.X - origin_zcz.X, 2) + Math.Pow(point11.Y - origin_zcz.Y, 2) + Math.Pow(point11.Z - origin_zcz.Z, 2));
+                double error = Math.Abs(s1_zcz - (double.Parse(cylinder1_scz_diam)) / 2);
+                if (s1_zcz < (Double.Parse(cylinder2_zcz_diam) / 2 + 0.5))
+                { cylinder1edge2_zcz[0] = item.Tag; }
+                else if (error < 0.5)
+                { cylinder1edge1_zcz[0] = item.Tag; }
+                else if (s1_zcz > ((Double.Parse(cylinder1_scz_diam)) / 2 + 5))
+                { cylinder1edge1_zcz[1] = item.Tag; }
+            }
+            string offset1_1 = "1.5";
+            string offset2_1 = "1";
+            ufmodel.CreateChamfer(1, offset1_1, "0", "0", cylinder1edge1_zcz, out cylinder1chamfer1_zcz_tag);
+            ufmodel.CreateChamfer(1, offset2_1, "0", "0", cylinder1edge2_zcz, out cylinder1chamfer2_zcz_tag);
+            BodyFeature cylinder1chamfer1_zcz = (BodyFeature)NXObjectManager.Get(cylinder1chamfer1_zcz_tag);
+            BodyFeature cylinder1chamfer2_zcz = (BodyFeature)NXObjectManager.Get(cylinder1chamfer2_zcz_tag);
+       
+            //锥角
+            Point3d cone_zcz_point = GetPointBy_ori_vec(origin, Double.Parse(cylinder2_zcz_height), vector);
+            Tag cone_zcz_tag;
+            string[] cone_zcz_diam = { lz_para[0], "0" };
+            double cone_zcz_height = Math.Tanh(Math.PI / 6) * (Double.Parse(lz_para[0]) / 2);
+            double[] cone_zcz_origin = { cone_zcz_point.X, cone_zcz_point.Y, cone_zcz_point.Z };
+            double[] cone_scz_direction = { vector.X, vector.Y, vector.Z };
+            ufmodel.CreateCone1(FeatureSigns.Negative, cone_zcz_origin, cone_zcz_height.ToString(), cone_zcz_diam, cone_scz_direction, out cone_zcz_tag);
+            BodyFeature cone_zcz = (BodyFeature)NXObjectManager.Get(cone_zcz_tag);
+            
+        }
+              
+        public static string GetExcelFilePath(string fileName)
+        {
+            int filelength;
+            string currentDllDirectory = System.AppDomain.CurrentDomain.BaseDirectory;
+            filelength = currentDllDirectory.Length;
+            string currentAppDirectory = currentDllDirectory.Substring(0, filelength - 12);
+            string currentDataPath = Path.Combine(currentAppDirectory, @"exceldata\");
+            string excelFilePath = Path.Combine(currentDataPath, fileName);
+            return excelFilePath;
+        }
+        public static ISheet GetExcelSheet(string fileName, string sheetName)
+        {
+            IWorkbook workbook = null;
+            ISheet sheet = null;
+            
+            string excelFilePath = GetExcelFilePath(fileName);
+            FileStream fs = null;
+            fs = new FileStream(excelFilePath, FileMode.Open, FileAccess.Read);
+            if (fileName.IndexOf(".xlsx") > 0) // 2007版本
+                workbook = new XSSFWorkbook(fs);
+            else if (fileName.IndexOf(".xls") > 0) // 2003版本
+                workbook = new HSSFWorkbook(fs);
+            sheet = workbook.GetSheet(sheetName);
+            return sheet;
+        }
+        /// <summary>
+        /// 排除空格选取相应值
+        /// </summary>
+        public static string GetExcelForParaAndRow(ISheet isheet, int rowNum, string paraTittle, int paraTittleRowIndex)
+        {
+            int volumn = -1;
+            string paraValue = string.Empty;
+            IRow row = isheet.GetRow(paraTittleRowIndex);
+            while (paraValue != paraTittle)
+            {
+                volumn++;
+                paraValue = row.GetCell(volumn).StringCellValue;
+            }
+            paraValue = isheet.GetRow(rowNum).GetCell(volumn).StringCellValue;
+            while (paraValue == "")
+            {
+                if (rowNum == (paraTittleRowIndex + 2)) break;
+                rowNum--;
+                paraValue = isheet.GetRow(rowNum).GetCell(volumn).StringCellValue;
+            }
+            return paraValue;
+        }
+        /// <summary>
+        /// 由同一向量上的点获取特定距离的点
+        /// </summary>
+        public Point3d GetPointBy_ori_vec(Point3d origin, double distance, Vector3d vector)
+        {
+            Point3d point_result;
+            Vector3d unit_vector = Unit_vector(vector);
+            double x = origin.X + distance * unit_vector.X;
+            double y = origin.Y + distance * unit_vector.Y;
+            double z = origin.Z + distance * unit_vector.Z;
+            point_result = new Point3d(x, y, z);
+            return point_result;
+        }
+        /// <summary>
+        /// 获取单位向量
+        /// </summary>
+        public Vector3d Unit_vector(Vector3d vector111)
+        {
+            double x, y, z, s;
+            Vector3d vector_result;
+            s = Math.Sqrt(Math.Pow(vector111.X, 2) + Math.Pow(vector111.Y, 2) + Math.Pow(vector111.Z, 2));
+            x = vector111.X / s;
+            y = vector111.Y / s;
+            z = vector111.Z / s;
+            vector_result = new Vector3d(x, y, z);
+            return vector_result;
+        }
     }
 
 
