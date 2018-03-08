@@ -125,18 +125,6 @@ namespace ZCZ
         private static Point3d origin_point = new Point3d(0, 0, 0);
         private static Arc arc = null;
 
-        IRow row = null;
-        ISheet sheet = null;
-        /// <summary>
-        /// 最后一个元素为Para，第一个为第一个参数
-        /// </summary>
-        List<string> AttributesList = new List<string>();//
-        /// <summary>
-        /// 记录有多少个属性,最后一个为END,第一个为第一个Supplier
-        /// </summary>
-        List<string> ParaRow0List = new List<string>();//
-        List<int> SupplierRowNum = new List<int>();//属性区间
-
 
         private NXOpen.UIStyler.DialogItem supportPillarDialog;
         private NXOpen.UIStyler.BitMap supportPillarBitmap1;
@@ -174,9 +162,33 @@ namespace ZCZ
         private NXOpen.UIStyler.PushButton supportPillarActionUpdate;
         public static bool isDisposeCalled;
 
+        IRow row = null;
+        ISheet sheet = null;
+        /// <summary>
+        /// 最后一个元素为Para，第一个为第一个参数
+        /// </summary>
+        List<string> supportPillarAttributesList = new List<string>();//
+        /// <summary>
+        /// 记录有多少个属性,最后一个为END,第一个为第一个Supplier
+        /// </summary>
+        List<string> supportPillarParaRow0List = new List<string>();//
+        List<int> supportPillarSupplierRowNum = new List<int>();//支撑住属性区间
         public double[] supportPillarSelPoint=null;
-        public Dictionary<string, double> paraDictorary = new Dictionary<string, double>() { { "BaseboardUpFaceZ", 0 },{ "BaseboardDownFaceZ", 0 }, { "BboardDownFaceZ", 0 } };
-        #region " UI Styler Dialog Designer generator code " 
+        public int supportPillarParaTittleRow = 0;
+        public int supportPillarSupplierRow = 0;
+
+        IRow screwRow = null;
+        ISheet screwSheet = null;
+        List<string> screwParaRow0List = new List<string>();//
+        List<string> screwAttributesList = new List<string>();//
+        List<int> screwSupplierRowNum = new List<int>();//螺丝属性区间
+        public int screwParaTittleRow = 0;
+        public int screwSupplierRow = 0;
+
+        public Dictionary<string, double> paraDictorary = new Dictionary<string, double>() { { "BaseboardUpFaceZ", 0 },{ "BaseboardDownFaceZ", 0 }, { "BboardDownFaceZ", 0 }, {"supportPillarDiameter",0 }, {"supportPillarHeight",0 }, {"supportPillarScrewDiameter",0 },
+                                                          {"supportPillarAvoid" ,0}, {"supportPillarChamfer",0 }, {"screwUpCylinderDiameter",0}, {"screwUpCylinderHeight",0 }, {"screwDownCylinderDiameter",0 }, {"screwDownCylinderHeight",0  }, {"screwSexangleLength",0 },
+                                                           { "screwSexangleHeight",0}, {"subDownCylinderHeight" ,0},{"subDownCylinderDiameter" ,0}, {"subUpCylinderDiameter",0 } };
+        #region " UI Styler Dialog Designer generator code "
         //------------------------------------------------------------------------------
         // Constructor for NX Styler class
         //------------------------------------------------------------------------------
@@ -622,69 +634,74 @@ namespace ZCZ
                     ufmodel.AskBodyFeats(PartObjectList[i], out feature_tag);
                     NXOpen.Features.Feature feature_body;
                     feature_body = NXObjectManager.Get(feature_tag[0]) as NXOpen.Features.Feature;
-                    attr_string = feature_body.GetStringAttribute("中文名称");
-                    if(attr_string=="动模底板")
-                    {
-                        BodyArray[0] = PartObjectList[i];
-                        Tag[] FaceList;
-                        ufmodel.AskBodyFaces(BodyArray[0],out FaceList);
-                        int FaceType;
-                        double[] FacePoint = new double[3];
-                        double[] FaceDirection = new double[3];
-                        double[] FaceBox = new double[6];
-                        double FaceRadius;
-                        double FaceRadData;
-                        double ErrorSpaceX, ErrorSpaceY;
-                        int FaceNormDirection;
-                        for(int j=0;j<FaceList.Length;j++)//对于上表面和下表面判断的标准太过简单，未考虑中间的状况
-                        {
-                            ufmodel.AskFaceData(FaceList[j],out FaceType,FacePoint,FaceDirection,FaceBox,out FaceRadius,out FaceRadData,out FaceNormDirection);
-                            ErrorSpaceX = Math.Abs(FacePoint[0]);
-                            ErrorSpaceY = Math.Abs(FacePoint[1]);
-                            if ((ErrorSpaceX < 0.06) && (ErrorSpaceY < 0.06) && (Math.Abs(FaceDirection[2] - 1) < 0.01))
-                            { paraDictorary["BaseboardUpFaceZ"] = FacePoint[2];}
 
-                            else if ((ErrorSpaceX < 0.01) && (ErrorSpaceY < 0.01) && (Math.Abs(FaceDirection[2] + 1) < 0.01))
-                            { paraDictorary["BaseboardDownFaceZ"] = FacePoint[2];}
+                    #region 属性选取
+                    if (feature_body.HasUserAttribute("中文名称", NXObject.AttributeType.String, -1))
+                    {
+                        attr_string = feature_body.GetStringAttribute("中文名称");
+                        if (attr_string == "动模底板")
+                        {
+                            BodyArray[0] = PartObjectList[i];
+                            Tag[] FaceList;
+                            ufmodel.AskBodyFaces(BodyArray[0], out FaceList);
+                            int FaceType;
+                            double[] FacePoint = new double[3];
+                            double[] FaceDirection = new double[3];
+                            double[] FaceBox = new double[6];
+                            double FaceRadius;
+                            double FaceRadData;
+                            double ErrorSpaceX, ErrorSpaceY;
+                            int FaceNormDirection;
+                            for (int j = 0; j < FaceList.Length; j++)//对于上表面和下表面判断的标准太过简单，未考虑中间的状况
+                            {
+                                ufmodel.AskFaceData(FaceList[j], out FaceType, FacePoint, FaceDirection, FaceBox, out FaceRadius, out FaceRadData, out FaceNormDirection);
+                                ErrorSpaceX = Math.Abs(FacePoint[0]);
+                                ErrorSpaceY = Math.Abs(FacePoint[1]);
+                                if ((ErrorSpaceX < 0.06) && (ErrorSpaceY < 0.06) && (Math.Abs(FaceDirection[2] - 1) < 0.01))
+                                { paraDictorary["BaseboardUpFaceZ"] = FacePoint[2]; }
+
+                                else if ((ErrorSpaceX < 0.01) && (ErrorSpaceY < 0.01) && (Math.Abs(FaceDirection[2] + 1) < 0.01))
+                                { paraDictorary["BaseboardDownFaceZ"] = FacePoint[2]; }
+                            }
+                        }
+                        if (attr_string == "动模顶针底板")
+                        {
+                            BodyArray[1] = PartObjectList[i];
+                        }
+                        if (attr_string == "动模顶针面板")
+                        {
+                            BodyArray[2] = PartObjectList[i];
+                        }
+                        if (attr_string == "B板")
+                        {
+
+                            BodyArray[3] = PartObjectList[i];
+                            Tag[] FaceList;
+                            ufmodel.AskBodyFaces(BodyArray[3], out FaceList);
+                            int FaceType;
+                            double[] FacePoint = new double[3];
+                            double[] FaceDirection = new double[3];
+                            double[] FaceBox = new double[6];
+                            double FaceRadius;
+                            double FaceRadData;
+                            double ErrorSpaceX, ErrorSpaceY;
+                            int FaceNormDirection;
+                            for (int j = 0; j < FaceList.Length; j++)//对于上表面和下表面判断的标准太过简单，未考虑中间的状况//通过判断最小和最大的Z值
+                            {
+                                ufmodel.AskFaceData(FaceList[j], out FaceType, FacePoint, FaceDirection, FaceBox, out FaceRadius, out FaceRadData, out FaceNormDirection);
+                                ErrorSpaceX = Math.Abs(FacePoint[0]);
+                                ErrorSpaceY = Math.Abs(FacePoint[1]);
+                                if ((ErrorSpaceX < 0.06) && (ErrorSpaceY < 0.06) && (Math.Abs(FaceDirection[2] + 1) < 0.01))
+                                { paraDictorary["BboardDownFaceZ"] = FacePoint[2]; }
+                            }
                         }
                     }
-                    if(attr_string == "动模顶针底板")
-                    {
-                        BodyArray[1] = PartObjectList[i];
-                    }
-                    if(attr_string == "动模顶针面板")
-                    {
-                        BodyArray[2] = PartObjectList[i];
-                    }
-                    if (attr_string == "B板")
-                    {
-
-                        BodyArray[3] = PartObjectList[i];
-                        Tag[] FaceList;
-                        ufmodel.AskBodyFaces(BodyArray[3], out FaceList);
-                        int FaceType;
-                        double[] FacePoint = new double[3];
-                        double[] FaceDirection = new double[3];
-                        double[] FaceBox = new double[6];
-                        double FaceRadius;
-                        double FaceRadData;
-                        double ErrorSpaceX, ErrorSpaceY;
-                        int FaceNormDirection;
-                        for (int j = 0; j < FaceList.Length; j++)//对于上表面和下表面判断的标准太过简单，未考虑中间的状况//通过判断最小和最大的Z值
-                        {
-                            ufmodel.AskFaceData(FaceList[j], out FaceType, FacePoint, FaceDirection, FaceBox, out FaceRadius, out FaceRadData, out FaceNormDirection);
-                            ErrorSpaceX = Math.Abs(FacePoint[0]);
-                            ErrorSpaceY = Math.Abs(FacePoint[1]);
-                            if ((ErrorSpaceX < 0.06) && (ErrorSpaceY < 0.06) && (Math.Abs(FaceDirection[2] + 1) < 0.01))
-                            { paraDictorary["BboardDownFaceZ"] = FacePoint[2];  }
-                        }
-                    }
+                    #endregion 
                 }
 
-                
+                #region 支撑柱excel读取
                 sheet = GetExcelSheet("SupportPillar.xls", "SupportPillar");
                 row = sheet.GetRow(0);
-                string test = row.GetCell(0).StringCellValue;
                 string CellValue = row.GetCell(0).StringCellValue;
                 int index = 0;
                 while (CellValue != "END")
@@ -695,8 +712,12 @@ namespace ZCZ
                         {
                             index++;
                             CellValue = sheet.GetRow(index).GetCell(0).StringCellValue;
-                            AttributesList.Add(CellValue);
+                            supportPillarAttributesList.Add(CellValue);
                         }
+
+                        //获取属性行数号
+                        supportPillarParaTittleRow = index;
+
                     }
                     else if (CellValue == "SUPPLIER")
                     {
@@ -706,8 +727,8 @@ namespace ZCZ
                             CellValue = sheet.GetRow(index).GetCell(0).StringCellValue;
                             if (CellValue != "")
                             {
-                                ParaRow0List.Add(CellValue);
-                                SupplierRowNum.Add(index);
+                                supportPillarParaRow0List.Add(CellValue);
+                                supportPillarSupplierRowNum.Add(index);
                             }
                         }
                     }
@@ -717,21 +738,87 @@ namespace ZCZ
                         CellValue = sheet.GetRow(index).GetCell(0).StringCellValue;
                     }
                 }
+
+                //供应商下拉框数据
                 List<string> SupplierList = new List<string>();
-                for(int j=0;j<(ParaRow0List.Count-1);j++)
+                for(int j=0;j<(supportPillarParaRow0List.Count-1);j++)
                 {
-                    SupplierList.Add(ParaRow0List[j]);
+                    SupplierList.Add(supportPillarParaRow0List[j]);
                 }
                 supportPillarOptionSupplier.SetItems(SupplierList.ToArray());
-                int SelParaNum = supportPillarOptionSupplier.ItemValue;
+                int SelSupplierIndex = supportPillarOptionSupplier.ItemValue;
 
-
+                //直径下拉框数据
                 List<string> SelParaArry = new List<string>();
-                for (int i = SupplierRowNum[SelParaNum]; i < SupplierRowNum[SelParaNum + 1]; i++)
+                for (int i = supportPillarSupplierRowNum[SelSupplierIndex]; i < supportPillarSupplierRowNum[SelSupplierIndex + 1]; i++)
                 {
                     SelParaArry.Add(sheet.GetRow(i).GetCell(1).StringCellValue);
                 }
                 supportPillarOptionSafeDis.SetItems(SelParaArry.ToArray());
+
+                //初始化行号，为第一个参数
+                supportPillarSupplierRow = supportPillarSupplierRowNum[0];
+                supportPillarStrAvoidDiam.ItemValue = GetExcelForParaAndRow(sheet, supportPillarSupplierRow, "直径单边避空", supportPillarParaTittleRow);
+                #endregion
+
+                #region 螺丝属性读取
+                screwSheet = GetExcelSheet("Screw.xls","Screw");
+                screwRow = screwSheet.GetRow(0);
+                string screwCellValue = screwRow.GetCell(0).StringCellValue;
+                int screwIndex = 0;
+                while (screwCellValue != "END")
+                {
+                    if (screwCellValue == "ATTRIBUTES")
+                    {
+                        while (screwCellValue != "PARAMETERS")
+                        {
+                            screwIndex++;
+                            screwCellValue = screwSheet.GetRow(screwIndex).GetCell(0).StringCellValue;
+                            supportPillarAttributesList.Add(screwCellValue);
+                        }
+
+                        //获取属性行数号
+                        screwParaTittleRow = screwIndex;
+
+                    }
+                    else if (screwCellValue == "SUPPLIER")
+                    {
+                        while (screwCellValue != "END")
+                        {
+                            screwIndex++;
+                            screwCellValue = screwSheet.GetRow(screwIndex).GetCell(0).StringCellValue;
+                            if (screwCellValue != "")
+                            {
+                                screwParaRow0List.Add(screwCellValue);
+                                screwSupplierRowNum.Add(screwIndex);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        screwIndex++;
+                        screwCellValue = screwSheet.GetRow(screwIndex).GetCell(0).StringCellValue;
+                    }
+                }
+                /*
+                List<string> screwSupplierList = new List<string>();
+                for(int j=0;j<(screwParaRow0List.Count-1);j++)
+                {
+                    screwSupplierList.Add(screwParaRow0List[j]);
+                }
+                supportPillarOptionScrewSupplier.SetItems(screwSupplierList.ToArray());
+                int selScrewSupplierIndex = supportPillarOptionScrewSupplier.ItemValue;
+
+                //直径下拉框数据
+                List<string> screwSelParaArry = new List<string>();
+                for (int i = screwSupplierRowNum[selScrewSupplierIndex]; i < screwSupplierRowNum[selScrewSupplierIndex + 1]; i++)
+                {
+                    screwSelParaArry.Add(screwSheet.GetRow(i).GetCell(1).StringCellValue);
+                }
+                supportPillarOptionScrewSize.SetItems(screwSelParaArry.ToArray());*/
+
+                #endregion
+
                 // ---- Enter your callback code here -----
 
 
@@ -833,13 +920,17 @@ namespace ZCZ
         {
             try
             {
-                int SelParaNum = supportPillarOptionSupplier.ItemValue;
+                //使直径下拉框与供应商下拉框相对应
+                int SelSupplierIndex = supportPillarOptionSupplier.ItemValue;
                 List<string> SelParaArry = new List<string>();
-                for (int i = SupplierRowNum[SelParaNum]; i < SupplierRowNum[SelParaNum + 1]; i++)
+                for (int i = supportPillarSupplierRowNum[SelSupplierIndex]; i < supportPillarSupplierRowNum[SelSupplierIndex + 1]; i++)
                 {
                     SelParaArry.Add(sheet.GetRow(i).GetCell(1).StringCellValue);
                 }
                 supportPillarOptionSafeDis.SetItems(SelParaArry.ToArray());
+
+                //供应商的行号
+                supportPillarSupplierRow = supportPillarSupplierRowNum[SelSupplierIndex];
 
                 // ---- Enter your callback code here -----
 
@@ -943,7 +1034,8 @@ namespace ZCZ
         {
             try
             {
-
+                int supportPillarParaRow = supportPillarSupplierRow + supportPillarOptionSafeDis.ItemValue;
+                supportPillarStrAvoidDiam.ItemValue = GetExcelForParaAndRow(sheet, supportPillarParaRow, "直径单边避空", supportPillarParaTittleRow);
                 // ---- Enter your callback code here -----
 
 
@@ -1099,6 +1191,42 @@ namespace ZCZ
             {
                 workpart.ModelingViews.WorkView.Orient(View.Canned.Top, View.ScaleAdjustment.Fit);//俯视图
 
+
+                int supportPillarParaRow = supportPillarSupplierRow + supportPillarOptionSafeDis.ItemValue;
+                paraDictorary["supportPillarDiameter"] = Double.Parse( supportPillarOptionSafeDis.GetItems()[supportPillarOptionSafeDis.ItemValue]);
+                paraDictorary["supportPillarHeight"] = paraDictorary["BboardDownFaceZ"] - paraDictorary["BaseboardUpFaceZ"];
+                paraDictorary["supportPillarAvoid"] = Double.Parse( supportPillarStrAvoidDiam.ItemValue);
+                paraDictorary["supportPillarScrewDiameter"] =Double.Parse( GetExcelForParaAndRow(sheet,supportPillarParaRow, "螺丝规格",supportPillarParaTittleRow).Substring(1));
+                paraDictorary["supportPillarChamfer"]= Double.Parse(GetExcelForParaAndRow(sheet, supportPillarParaRow, "C角", supportPillarParaTittleRow));
+
+                int screwParaRow=0;
+                for (int i = screwSupplierRowNum[0]; i < screwSupplierRowNum[1]; i++)
+                {
+                    if((screwSheet.GetRow(i).GetCell(1).StringCellValue) == GetExcelForParaAndRow(sheet, supportPillarParaRow, "螺丝规格", supportPillarParaTittleRow))
+                    {
+                        screwParaRow = i;
+                    }
+                }
+                paraDictorary["screwUpCylinderDiameter"] = paraDictorary["supportPillarScrewDiameter"];
+                paraDictorary["screwDownCylinderDiameter"] = double.Parse(GetExcelForParaAndRow(screwSheet, screwParaRow, "下圆柱直径", screwParaTittleRow));
+                paraDictorary["screwDownCylinderHeight"] = double.Parse(GetExcelForParaAndRow(screwSheet, screwParaRow, "下圆柱高", screwParaTittleRow));
+                paraDictorary["screwSexangleLength"] = double.Parse(GetExcelForParaAndRow(screwSheet, screwParaRow, "六边形长度", screwParaTittleRow));
+                paraDictorary["screwSexangleHeight"] = double.Parse(GetExcelForParaAndRow(screwSheet, screwParaRow, "六边形拉伸高", screwParaTittleRow));
+                paraDictorary["subDownCylinderHeight"] = double.Parse(GetExcelForParaAndRow(screwSheet, screwParaRow, "下圆柱假体高", screwParaTittleRow));
+                paraDictorary["subDownCylinderDiameter"] = double.Parse(GetExcelForParaAndRow(screwSheet, screwParaRow, "下圆柱假体直径", screwParaTittleRow));
+                paraDictorary["subUpCylinderDiameter"] = double.Parse(GetExcelForParaAndRow(screwSheet, screwParaRow, "上圆柱假体直径", screwParaTittleRow));
+
+
+                string[] screwUpCylinderLengthArray = GetExcelForParaAndRow(screwSheet, screwParaRow, "长度", screwParaTittleRow).Split(',');
+                double referLength = paraDictorary["BaseboardUpFaceZ"] - paraDictorary["BaseboardDownFaceZ"]- paraDictorary["subDownCylinderHeight"]+1.5* paraDictorary["screwUpCylinderDiameter"];
+                for (int i=0;i<screwUpCylinderLengthArray.Length;i++)
+                {
+                   if(Double.Parse( screwUpCylinderLengthArray[i])>=referLength)
+                    {
+                        paraDictorary["screwUpCylinderHeight"] = Double.Parse(screwUpCylinderLengthArray[i]);
+                        break;
+                    }
+                }
                 string message = "test";
                 double[] screen_pt = {0,0,0 };
                 Tag view_tag = Tag.Null;
@@ -1107,10 +1235,23 @@ namespace ZCZ
 
                 if(response==UFConstants.UF_UI_PICK_RESPONSE)
                 {
-                    string msg = string.Format("You Pick Screen Point({0},{1},{2})",screen_pt[0],screen_pt[1],screen_pt[2]);
+                    /*string msg = string.Format("You Pick Screen Point({0},{1},{2})",screen_pt[0],screen_pt[1],screen_pt[2]);
                     ufui.DisplayMessage(msg,0);
-                    supportPillarSelPoint = new double[3] { screen_pt[0], screen_pt[1], screen_pt[2] };
+                    supportPillarSelPoint = new double[3] { screen_pt[0], screen_pt[1], screen_pt[2] };*/
+                    double[] testee = { 0,0, paraDictorary["subDownCylinderHeight"] - paraDictorary["screwDownCylinderHeight"] };
+                    double[] teste1 = {0,0, paraDictorary["BaseboardUpFaceZ"] };
+                    double[] test2 = { 0, 0, 0 };
+                    Tag supportPillarEnityBodyTag;
+                    Tag screwEnityBodyTag;
+                    CreateEnitySupportPillar(teste1, paraDictorary["supportPillarDiameter"], paraDictorary["supportPillarHeight"], paraDictorary["supportPillarScrewDiameter"], paraDictorary["supportPillarChamfer"], 
+                    out supportPillarEnityBodyTag);
+                    CreareEnityScrew(testee, paraDictorary["screwUpCylinderDiameter"], paraDictorary["screwUpCylinderHeight"], paraDictorary["screwDownCylinderDiameter"], paraDictorary["screwDownCylinderHeight"], paraDictorary["screwSexangleLength"], 
+                        paraDictorary["screwSexangleHeight"],out screwEnityBodyTag);
+                    CreateSubtract(test2, paraDictorary["subDownCylinderDiameter"], paraDictorary["subDownCylinderHeight"], paraDictorary["screwUpCylinderDiameter"]+1, paraDictorary["BaseboardUpFaceZ"] - paraDictorary["BaseboardDownFaceZ"]- paraDictorary["subDownCylinderHeight"],
+                        paraDictorary["supportPillarDiameter"]+2* paraDictorary["supportPillarAvoid"], paraDictorary["supportPillarHeight"]);
 
+                    theufsession.Obj.DeleteObject(arc.Tag);
+                    arc = null;
                 }
                 // ---- Enter your callback code here -----
                 
@@ -1129,19 +1270,19 @@ namespace ZCZ
         //鼠标移动响应函数
         public void motion_cb(double[] screen_pos ,ref UFUi.MotionCbData motion_cb_data, IntPtr data)//鼠标的移动响应函数
         {
-            string msg1 = string.Format("Mouse at Point({0},{1},{2})", screen_pos[0], screen_pos[1], screen_pos[2]);
-            
-            if(arc==null)
+            // string msg1 = string.Format("Mouse at Point({0},{1},{2})", screen_pos[0], screen_pos[1], screen_pos[2]);
+            if (arc==null)
             {
                 Point3d point = new Point3d(screen_pos[0], screen_pos[1], screen_pos[2]);
                 arc = workpart.Curves.CreateArc(point, vector_x, vector_y, 10, 0, 2 * Math.PI);
+
             }
             else
             {
                 theufsession.Obj.DeleteObject(arc.Tag);
                 Point3d point = new Point3d(screen_pos[0], screen_pos[1], screen_pos[2]);
                 arc = workpart.Curves.CreateArc(point, vector_x, vector_y, 10, 0, 2 * Math.PI);
-                ufui.DisplayMessage(msg1, 0);
+               // ufui.DisplayMessage(msg1, 0);
             }
         }
 
@@ -1170,27 +1311,28 @@ namespace ZCZ
             // or Callback acknowledged, terminate dialog.
             // return NXOpen.UIStyler.DialogState.ExitDialog;
         }
-       
-        public void CreateEnitySupportPillar(double[] supportPillarPoint,double supportPillarDiameter)//返回假体，用out;
+
+        /// <summary>
+        /// 根据初始点，直径，高度，螺丝直径创建支撑住实体
+        /// </summary>
+        public void CreateEnitySupportPillar(double[] supportPillarPoint,double supportPillarDiameter,double supportPillarHeight,double supportPillarScrewDiameter,double supportPillarChamfer, out Tag supportPillarEnityBodyTag)//返回假体，用out;
         {
-            #region 支撑柱
-            Point3d origin_zcz = origin;
-            Vector3d vector_zcz = vector;
-            double 
+            double[] origin_zcz = supportPillarPoint;
+            double[] vector_zcz = {0,0,1 };
             //大圆柱
             Tag cylinder1_zcz_tag;
-            double[] cylinder1_zcz_origin = { origin_zcz.X, origin_zcz.Y, origin_zcz.Z };
-            string cylinder1_zcz_height = hei_zcz_sel;
-            string cylinder1_scz_diam = diam_zcz_sel;
-            double[] cylinder1_scz_direction = { vector.X, vector.Y, vector.Z };
-            ufmodel.CreateCylinder(FeatureSigns.Nullsign, null_tag, cylinder1_zcz_origin, cylinder1_zcz_height, cylinder1_scz_diam, cylinder1_scz_direction, out cylinder1_zcz_tag);
+            double[] cylinder1_zcz_origin = { origin_zcz[0], origin_zcz[1], origin_zcz[2] };
+            string cylinder1_zcz_height = supportPillarHeight.ToString();//圆柱高
+            string cylinder1_scz_diam = supportPillarDiameter.ToString();//圆柱直径
+            double[] cylinder1_scz_direction = { vector_zcz[0], vector_zcz[1], vector_zcz[2] };
+            ufmodel.CreateCylinder(FeatureSigns.Nullsign, Tag.Null, cylinder1_zcz_origin, cylinder1_zcz_height, cylinder1_scz_diam, cylinder1_scz_direction, out cylinder1_zcz_tag);
             NXOpen.Features.Cylinder cylinder1_zcz = NXObjectManager.Get(cylinder1_zcz_tag) as NXOpen.Features.Cylinder;
             //内部小圆柱
             Tag cylinder2_zcz_tag;
-            double[] cylinder2_zcz_origin = { origin_zcz.X, origin_zcz.Y, origin_zcz.Z };
-            string cylinder2_zcz_height = (Double.Parse(lz_para[0]) * 2.5).ToString();
-            string cylinder2_zcz_diam = lz_para[0];
-            double[] cylinder2_scz_direction = { vector.X, vector.Y, vector.Z };
+            double[] cylinder2_zcz_origin = { origin_zcz[0], origin_zcz[1], origin_zcz[2] };
+            string cylinder2_zcz_height = (supportPillarScrewDiameter * 2.5).ToString();
+            string cylinder2_zcz_diam = (supportPillarScrewDiameter - 1.5).ToString();
+            double[] cylinder2_scz_direction = { vector_zcz[0], vector_zcz[1], vector_zcz[2] };
             ufmodel.CreateCyl1(FeatureSigns.Negative, cylinder2_zcz_origin, cylinder2_zcz_height, cylinder2_zcz_diam, cylinder2_scz_direction, out cylinder2_zcz_tag);
             NXOpen.Features.Cylinder cylinder2_zcz = NXObjectManager.Get(cylinder2_zcz_tag) as NXOpen.Features.Cylinder;
             //倒斜角
@@ -1205,7 +1347,7 @@ namespace ZCZ
                 Point3d point11;
                 Point3d point12;
                 item.GetVertices(out point11, out point12);
-                double s1_zcz = Math.Sqrt(Math.Pow(point11.X - origin_zcz.X, 2) + Math.Pow(point11.Y - origin_zcz.Y, 2) + Math.Pow(point11.Z - origin_zcz.Z, 2));
+                double s1_zcz = Math.Sqrt(Math.Pow(point11.X - origin_zcz[0], 2) + Math.Pow(point11.Y - origin_zcz[1], 2) + Math.Pow(point11.Z - origin_zcz[2], 2));
                 double error = Math.Abs(s1_zcz - (double.Parse(cylinder1_scz_diam)) / 2);
                 if (s1_zcz < (Double.Parse(cylinder2_zcz_diam) / 2 + 0.5))
                 { cylinder1edge2_zcz[0] = item.Tag; }
@@ -1214,7 +1356,7 @@ namespace ZCZ
                 else if (s1_zcz > ((Double.Parse(cylinder1_scz_diam)) / 2 + 5))
                 { cylinder1edge1_zcz[1] = item.Tag; }
             }
-            string offset1_1 = "1.5";
+            string offset1_1 = supportPillarChamfer.ToString();
             string offset2_1 = "1";
             ufmodel.CreateChamfer(1, offset1_1, "0", "0", cylinder1edge1_zcz, out cylinder1chamfer1_zcz_tag);
             ufmodel.CreateChamfer(1, offset2_1, "0", "0", cylinder1edge2_zcz, out cylinder1chamfer2_zcz_tag);
@@ -1222,17 +1364,226 @@ namespace ZCZ
             BodyFeature cylinder1chamfer2_zcz = (BodyFeature)NXObjectManager.Get(cylinder1chamfer2_zcz_tag);
        
             //锥角
-            Point3d cone_zcz_point = GetPointBy_ori_vec(origin, Double.Parse(cylinder2_zcz_height), vector);
+            double[] cone_zcz_point = GetPointBy_ori_vec(origin_zcz, Double.Parse(cylinder2_zcz_height), vector_zcz);
             Tag cone_zcz_tag;
-            string[] cone_zcz_diam = { lz_para[0], "0" };
-            double cone_zcz_height = Math.Tanh(Math.PI / 6) * (Double.Parse(lz_para[0]) / 2);
-            double[] cone_zcz_origin = { cone_zcz_point.X, cone_zcz_point.Y, cone_zcz_point.Z };
-            double[] cone_scz_direction = { vector.X, vector.Y, vector.Z };
+            string[] cone_zcz_diam = { cylinder2_zcz_diam, "0" };
+            double cone_zcz_height = Math.Tanh(Math.PI / 6) * (Double.Parse(cylinder2_zcz_diam) / 2);
+            double[] cone_zcz_origin = { cone_zcz_point[0], cone_zcz_point[1], cone_zcz_point[2] };
+            double[] cone_scz_direction = vector_zcz;
             ufmodel.CreateCone1(FeatureSigns.Negative, cone_zcz_origin, cone_zcz_height.ToString(), cone_zcz_diam, cone_scz_direction, out cone_zcz_tag);
             BodyFeature cone_zcz = (BodyFeature)NXObjectManager.Get(cone_zcz_tag);
-            
+
+            supportPillarEnityBodyTag = cylinder1_zcz.GetBodies()[0].Tag;
+            RemoveBodyParams(cylinder1_zcz.GetBodies()[0]);//消参
         }
-              
+
+        /// <summary>
+        /// 生成螺丝实体
+        /// </summary>
+        public void CreareEnityScrew(double[] screwPoint, double screwUpCylinderDiameter,double screwUpCylinderHeight,double screwDownCylinderDiameter,double screwDownCylinderHeight,double screwSexangleLength,double screwSexangleHeight, out Tag screwEnityBodyTag)
+        {
+            double[] origin_lz = screwPoint;
+            double[] direction = { 0,0,1};
+            
+            //下圆柱
+            Tag cylinder1_lz_tag;
+            Tag cylinder1body_lz_tag;
+            double[] cylinder1_lz_direction = direction;
+            double[] cylinder1_lz_origin = origin_lz;
+            string cylinder1_lz_hei = screwDownCylinderHeight.ToString();
+            string cylinder1_lz_diam = screwDownCylinderDiameter.ToString();
+            ufmodel.CreateCyl1(FeatureSigns.Nullsign, cylinder1_lz_origin, cylinder1_lz_hei, cylinder1_lz_diam, cylinder1_lz_direction, out cylinder1_lz_tag);
+            ufmodel.AskFeatBody(cylinder1_lz_tag, out cylinder1body_lz_tag);
+            NXOpen.Features.Cylinder cylinder1f_lz = NXObjectManager.Get(cylinder1_lz_tag) as NXOpen.Features.Cylinder;
+            //上圆柱
+            Tag cylinder2_lz_tag;
+            double[] cylinder2_lz_point = GetPointBy_ori_vec(origin_lz, screwDownCylinderHeight, direction);
+            double[] cylinder2_lz_direction = direction;
+            double[] cylinder2_lz_origin = cylinder2_lz_point;
+            string cylinder2_lz_hei = screwUpCylinderHeight.ToString();
+            string cylinder2_lz_diam = screwUpCylinderDiameter.ToString();
+            ufmodel.CreateCylinder(FeatureSigns.Positive, cylinder1body_lz_tag, cylinder2_lz_origin, cylinder2_lz_hei, cylinder2_lz_diam, cylinder2_lz_direction, out cylinder2_lz_tag);
+            NXOpen.Features.Cylinder cylinder2f_lz = NXObjectManager.Get(cylinder2_lz_tag) as NXOpen.Features.Cylinder;
+            //上倒斜角
+            Tag cylinder2cham_lz_tag;
+            string cylinder2cham_lz_offset1 = (screwUpCylinderDiameter * 0.1).ToString();
+            Edge edge2_top = null;
+            Tag[] edge2_top_tag = new Tag[1];
+            Edge[] edge2 = cylinder2f_lz.GetEdges();
+            foreach (Edge item in edge2)
+            {
+                Point3d point21;
+                Point3d point22;
+                item.GetVertices(out point21, out point22);
+                double s2_r = Math.Sqrt(Math.Pow(point21.X - cylinder2_lz_origin[0], 2) + Math.Pow(point21.Y - cylinder2_lz_origin[1], 2) + Math.Pow(point21.Z - cylinder2_lz_origin[2], 2));
+                double error = Math.Abs(s2_r - (double.Parse(cylinder2_lz_diam)) / 2);
+                if (error > 0.5)
+                { edge2_top = item; }
+            }
+            edge2_top_tag[0] = edge2_top.Tag;
+            ufmodel.CreateChamfer(1, cylinder2cham_lz_offset1, "", "", edge2_top_tag, out cylinder2cham_lz_tag);
+            BodyFeature cylinder2cham_lz = NXObjectManager.Get(cylinder2cham_lz_tag) as BodyFeature;
+            //下倒圆
+            Edge[] edge1_bottom = new Edge[1];
+            Edge[] edge1 = cylinder1f_lz.GetEdges();
+            Tag[] edge1_bottom_tag = new Tag[1];
+            Tag edgeblend;
+            foreach (Edge item in edge1)
+            {
+                Point3d point11;
+                Point3d point12;
+                item.GetVertices(out point11, out point12);
+                double s1_r = Math.Sqrt(Math.Pow(point11.X - cylinder1_lz_origin[0], 2) + Math.Pow(point11.Y - cylinder1_lz_origin[1], 2) + Math.Pow(point11.Z - cylinder1_lz_origin[2], 2));
+                double error = Math.Abs(s1_r - (double.Parse(cylinder1_lz_diam)) / 2);
+                if (error < 1)
+                {
+                    edge1_bottom[0] = item;
+                }
+            }
+            edge1_bottom_tag[0] = edge1_bottom[0].Tag;
+            ufmodel.CreateBlend("1", edge1_bottom_tag, 0, 0, 0, 0.1, out edgeblend);
+            EdgeBlend edge1_blend = (EdgeBlend)NXObjectManager.Get(edgeblend);
+
+            //拉伸
+            double radius_pol = screwSexangleLength / 2;
+            double[] terminal1 = new double[3] { (radius_pol * Math.Sqrt(3) / 3), radius_pol, 0 };
+            double[] terminal2 = new double[3] { (2 * radius_pol * Math.Sqrt(3) / 3), 0, 0 };
+            double[] terminal3 = new double[3] { (radius_pol * Math.Sqrt(3) / 3), -radius_pol, 0 };
+            double[] terminal4 = new double[3] { -(radius_pol * Math.Sqrt(3) / 3), -radius_pol, 0 };
+            double[] terminal5 = new double[3] { -(2 * radius_pol * Math.Sqrt(3) / 3), 0, 0 };
+            double[] terminal6 = new double[3] { -(radius_pol * Math.Sqrt(3) / 3), radius_pol, 0 };
+
+            Vector3d vector3 = new Vector3d(0,0,1);
+            double x1 = vector3.X;
+            double y1 = vector3.Y;
+            double z1 = vector3.Z;
+
+            double x2;
+            double y2;
+            double z2;
+            if (y1 == 0)
+            {
+                x2 = vector3.Z;
+                y2 = 0;
+                z2 = -vector3.X;
+            }
+            else
+            {
+                x2 = 0;
+                y2 = vector3.Z;
+                z2 = -vector3.Y;
+            }
+
+            double s2 = Math.Sqrt(Math.Pow(x2, 2) + Math.Pow(z2, 2) + Math.Pow(y2, 2));
+            Vector3d vector2 = new Vector3d(x2 / s2, y2 / s2, z2 / s2);
+
+            double x3 = y1 * z2 - z1 * y2;
+            double y3 = z1 * x2 - z2 * x1;
+            double z3 = x1 * y2 - x2 * y1;
+            double s3 = Math.Sqrt(Math.Pow(x3, 2) + Math.Pow(y3, 2) + Math.Pow(z3, 2));
+            Vector3d vector1 = new Vector3d(x3 / s3, y3 / s3, z3 / s3);
+
+            Line[] lines = new Line[6];
+            Tag[] lines_tag = new Tag[6];
+            Point3d start1 = Trans_point(terminal1, origin_lz, vector1, vector2, vector3);
+            Point3d end1 = Trans_point(terminal2, origin_lz, vector1, vector2, vector3);
+            lines[0] = workpart.Curves.CreateLine(start1, end1);
+            RemoveBodyParams(lines[0]);
+            lines[0].SetVisibility(SmartObject.VisibilityOption.Invisible);
+            lines_tag[0] = lines[0].Tag;
+
+            Point3d start2 = lines[0].EndPoint;
+            Point3d end2 = Trans_point(terminal3, origin_lz, vector1, vector2, vector3);
+            lines[1] = workpart.Curves.CreateLine(start2, end2);
+            RemoveBodyParams(lines[1]);
+            lines[1].SetVisibility(SmartObject.VisibilityOption.Invisible);
+            lines_tag[1] = lines[1].Tag;
+
+            Point3d start3 = lines[1].EndPoint;
+            Point3d end3 = Trans_point(terminal4, origin_lz, vector1, vector2, vector3);
+            lines[2] = workpart.Curves.CreateLine(start3, end3);
+            RemoveBodyParams(lines[2]);
+            lines[2].SetVisibility(SmartObject.VisibilityOption.Invisible);
+            lines_tag[2] = lines[2].Tag;
+
+            Point3d start4 = lines[2].EndPoint;
+            Point3d end4 = Trans_point(terminal5, origin_lz, vector1, vector2, vector3);
+            lines[3] = workpart.Curves.CreateLine(start4, end4);
+            RemoveBodyParams(lines[3]);
+            lines[3].SetVisibility(SmartObject.VisibilityOption.Invisible);
+            lines_tag[3] = lines[3].Tag;
+
+            Point3d start5 = lines[3].EndPoint;
+            Point3d end5 = Trans_point(terminal6, origin_lz, vector1, vector2, vector3);
+            lines[4] = workpart.Curves.CreateLine(start5, end5);
+            RemoveBodyParams(lines[4]);
+            lines[4].SetVisibility(SmartObject.VisibilityOption.Invisible);
+            lines_tag[4] = lines[4].Tag;
+
+            Point3d start6 = lines[4].EndPoint;
+            Point3d end6 = lines[0].StartPoint;
+            lines[5] = workpart.Curves.CreateLine(start6, end6);
+            RemoveBodyParams(lines[5]);
+            lines[5].SetVisibility(SmartObject.VisibilityOption.Invisible);
+            lines_tag[5] = lines[5].Tag;
+
+            string[] limit = { "0", screwSexangleHeight.ToString() };
+            double[] point = { 0, 0, 0 };
+            double[] dire = direction;
+            Tag[] extrude_1;
+            ufmodel.CreateExtruded2(lines_tag, "0", limit, point, dire, FeatureSigns.Negative, out extrude_1);
+            BodyFeature extrude2 = (BodyFeature)NXObjectManager.Get(extrude_1[0]);
+            screwEnityBodyTag = cylinder2f_lz.GetBodies()[0].Tag;
+            RemoveBodyParams(cylinder2f_lz.GetBodies()[0]);//消参
+
+        }
+
+        public void CreateSubtract(double[] subtractPoint,double subDownCylinderDiameter, double subDownCylinderHeight, double subMidCylinderDiameter,double subMidCylinderHeight, double subUpCylinderDiameter, double subUpCylinderHeight)
+        {
+            double[] vector_fal = { 0, 0, 1 };
+            double[] origin_fal = subtractPoint;
+
+            //螺柱假体
+            //底部圆柱
+            Tag cylinder2_fal_tag;
+            Tag cylinder2body_fal_tag;
+            double[] cylinder2_fal_origin = origin_fal;
+            double[] cylinder2_fal_direction = vector_fal;
+            string cylinder2_fal_diam = (subDownCylinderDiameter).ToString();
+            string cylinder2_fal_hei = (subDownCylinderHeight).ToString();
+            ufmodel.CreateCylinder(FeatureSigns.Nullsign, Tag.Null, cylinder2_fal_origin, cylinder2_fal_hei, cylinder2_fal_diam, cylinder2_fal_direction, out cylinder2_fal_tag);
+            ufmodel.AskFeatBody(cylinder2_fal_tag, out cylinder2body_fal_tag);
+            //中间圆柱
+            Tag cylinder1_fal_tag;
+            double[] cylinder1_fal_origin = GetPointBy_ori_vec(origin_fal, subDownCylinderHeight,vector_fal);
+            double[] cylinder1_fal_direction = vector_fal;
+            string cylinder1_fal_diam = (subMidCylinderDiameter).ToString();
+            string cylinder1_fal_hei = (subMidCylinderHeight).ToString();
+            ufmodel.CreateCylinder(FeatureSigns.Positive, cylinder2body_fal_tag, cylinder1_fal_origin, cylinder1_fal_hei, cylinder1_fal_diam, cylinder1_fal_direction, out cylinder1_fal_tag);
+            
+
+            //支撑柱假体
+            Tag cylinder3_fal_tag;
+            double[] cylinder3_fal_origin = GetPointBy_ori_vec(origin_fal, subMidCylinderHeight,vector_fal);
+            double[] cylinder3_fal_direction = vector_fal;
+            string cylinder3_fal_diam = (subUpCylinderDiameter).ToString();
+            string cylinder3_fal_hei = subUpCylinderHeight.ToString();
+            ufmodel.CreateCylinder(FeatureSigns.Positive, cylinder2body_fal_tag, cylinder3_fal_origin, cylinder3_fal_hei, cylinder3_fal_diam, cylinder3_fal_direction, out cylinder3_fal_tag);
+        }
+
+        public Point3d Trans_point(double[] point, double[] origin, Vector3d Vector_x, Vector3d Vector_y, Vector3d Vector_z)
+        {
+            double x = Vector_x.X * point[0] + Vector_y.X * point[1] + Vector_z.X * point[2] + origin[0];
+            double y = Vector_x.Y * point[0] + Vector_y.Y * point[1] + Vector_z.Y * point[2] + origin[1];
+            double z = Vector_x.Z * point[0] + Vector_y.Z * point[1] + Vector_z.Z * point[2] + origin[2];
+            Point3d point_result;
+            point_result = new Point3d(x, y, z);
+            return point_result;
+        }
+
+        /// <summary>
+        /// 减去文件名，以及相应的文件夹名
+        /// </summary>
         public static string GetExcelFilePath(string fileName)
         {
             int filelength;
@@ -1243,6 +1594,10 @@ namespace ZCZ
             string excelFilePath = Path.Combine(currentDataPath, fileName);
             return excelFilePath;
         }
+
+        /// <summary>
+        /// 获取相应名称下特定名字的excel sheet表
+        /// </summary>
         public static ISheet GetExcelSheet(string fileName, string sheetName)
         {
             IWorkbook workbook = null;
@@ -1258,6 +1613,7 @@ namespace ZCZ
             sheet = workbook.GetSheet(sheetName);
             return sheet;
         }
+
         /// <summary>
         /// 排除空格选取相应值
         /// </summary>
@@ -1280,32 +1636,61 @@ namespace ZCZ
             }
             return paraValue;
         }
+
         /// <summary>
         /// 由同一向量上的点获取特定距离的点
         /// </summary>
-        public Point3d GetPointBy_ori_vec(Point3d origin, double distance, Vector3d vector)
+        public double[] GetPointBy_ori_vec(double[] origin, double distance, double[] vector)
         {
-            Point3d point_result;
-            Vector3d unit_vector = Unit_vector(vector);
-            double x = origin.X + distance * unit_vector.X;
-            double y = origin.Y + distance * unit_vector.Y;
-            double z = origin.Z + distance * unit_vector.Z;
-            point_result = new Point3d(x, y, z);
+            double[] point_result=new double[3];
+            double[] unit_vector = Unit_vector(vector);
+            point_result[0] = origin[0] + distance * unit_vector[0];
+            point_result[1] = origin[1] + distance * unit_vector[1];
+            point_result[2] = origin[2] + distance * unit_vector[2];
             return point_result;
         }
+
         /// <summary>
         /// 获取单位向量
         /// </summary>
-        public Vector3d Unit_vector(Vector3d vector111)
+        public double[] Unit_vector(double[] vector111)
         {
-            double x, y, z, s;
-            Vector3d vector_result;
-            s = Math.Sqrt(Math.Pow(vector111.X, 2) + Math.Pow(vector111.Y, 2) + Math.Pow(vector111.Z, 2));
-            x = vector111.X / s;
-            y = vector111.Y / s;
-            z = vector111.Z / s;
-            vector_result = new Vector3d(x, y, z);
+            double s;
+            double[] vector_result=new double[3];
+            s = Math.Sqrt(Math.Pow(vector111[0], 2) + Math.Pow(vector111[1], 2) + Math.Pow(vector111[2], 2));
+            vector_result[0] = vector111[0] / s;
+            vector_result[1] = vector111[1] / s;
+            vector_result[2] = vector111[2] / s;
             return vector_result;
+        }
+
+        /// <summary>
+        /// 移除参数
+        /// </summary>
+        public static void RemoveBodyParams(NXObject nxObject)
+        {
+            try
+            {
+                Session theSession = Session.GetSession();
+                Part workPart = theSession.Parts.Work;
+                Part displayPart = theSession.Parts.Display;
+                // ----------------------------------------------
+                //   Menu: Edit->Feature->Remove Parameters...
+                // ----------------------------------------------
+                RemoveParametersBuilder removeParametersBuilder1;
+                removeParametersBuilder1 = workPart.Features.CreateRemoveParametersBuilder();
+
+                bool added = removeParametersBuilder1.Objects.Add(nxObject);
+
+                NXObject nXObject1;
+                nXObject1 = removeParametersBuilder1.Commit();
+
+                removeParametersBuilder1.Destroy();
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("移除参数错误,请仔细检查要移除参数的对象!", ex);
+            }
         }
     }
 
